@@ -34,7 +34,7 @@ def ensure(module):
                          username=foreman_user,
                          password=foreman_pass)
     data = {}
-    data['name'] = name
+    data['name'] = name + '.' + domain_name
 
     try:
         host = theforeman.get_host(data=data)
@@ -43,7 +43,7 @@ def ensure(module):
 
     if not host:
         if state == 'absent':
-            return False
+            return False, host
 
         # Architecture
         try:
@@ -164,7 +164,7 @@ def ensure(module):
             theforeman.delete_host(data=host)
         except ForemanError as e:
             module.fail_json(msg='Could not delete host: ' + e.message + '. Request: ' + str(e.request) + '. Status code: ' + str(e.status_code))
-        return True
+        return True, host
 
     try:
         host_power_state = theforeman.get_host_power(host_id=host.get('name')).get('power')
@@ -174,23 +174,23 @@ def ensure(module):
     if state == 'rebooted':
         try:
             theforeman.reboot_host(host_id=host.get('name'))
-            return True
+            return True, host
         except ForemanError as e:
             module.fail_json(msg='Could not reboot host: ' + e.message)
     elif state == 'running' and host_power_state != 'poweredOn':
         try:
             theforeman.poweron_host(host_id=host.get('name'))
-            return True
+            return True, host
         except ForemanError as e:
             module.fail_json(msg='Could not power on host: ' + e.message)
     elif state == 'stopped' and host_power_state != 'poweredOff':
         try:
             theforeman.poweroff_host(host_id=host.get('name'))
-            return True
+            return True, host
         except ForemanError as e:
             module.fail_json(msg='Could not power off host: ' + e.message)
 
-    return changed
+    return changed, host
 
 def main():
     module = AnsibleModule(
@@ -219,8 +219,10 @@ def main():
     if not foremanclient_found:
         module.fail_json(msg='python-foreman module is required')
 
-    changed = ensure(module)
-    module.exit_json(changed=changed, name=module.params['name'])
+    ensure_result = ensure(module)
+    changed = ensure_result[0]
+    host = ensure_result[1]
+    module.exit_json(changed=changed, name=module.params['name'], hostname=host.get('name'), ip=host.get('ip'))
 
 # import module snippets
 from ansible.module_utils.basic import *
