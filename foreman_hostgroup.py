@@ -140,6 +140,23 @@ def get_resource(module, resource_type, resource_func, resource_name, search_tit
     return result
 
 
+def filter_hostgroup(hg):
+    """Filter all _name parameters since we only care about the IDs and convert
+    ids to strings since this is what we need to feed back to foreman
+
+    >>> filter_hostgroup({"a_name": "foo", "a_id": 1})
+    {'a_id': '1'}
+    """
+    filtered = {}
+    keep = ['title', 'name', 'root_pass']
+    for k, v in hg.items():
+        if k.endswith('_id') and v is not None:
+            filtered[k] = str(v)
+        elif k in keep:
+            filtered[k] = v
+    return filtered
+
+
 def split_parent(name):
     """
     Split hostgroup name in parent part and name:
@@ -155,13 +172,6 @@ def split_parent(name):
 
 
 def ensure(module):
-    # Changes in one of the following keys fails with:
-    # <key> is not allowed as nested parameter for hostgroups. Allowed parameters are puppetclass_id, location_id, organization_id
-    # Strange as for example the Compute Profile can be changed via UI
-    hostgroup_nonupdateable_keys = ['architecture_id', 'compute_profile_id', 'domain_id', 'environment_id',
-                                    'medium_id', 'operatingsystem_id', 'subnet_id', 'ptable_id', 'smart_proxy_id']
-    hostgroup_updateable_keys = ['puppetclass_id', 'location_id', 'organization_id']
-
     changed = False
     full_name = module.params['name']
     short_name, parent_name = split_parent(full_name)
@@ -202,7 +212,7 @@ def ensure(module):
                                     resource_type=ARCHITECTURE,
                                     resource_func=theforeman.search_architecture,
                                     resource_name=architecture_name)
-        data['architecture_id'] = architecture.get('id')
+        data['architecture_id'] = str(architecture.get('id'))
 
     # Compute Profile
     if compute_profile_name:
@@ -210,7 +220,7 @@ def ensure(module):
                                        resource_type=COMPUTE_PROFILE,
                                        resource_func=theforeman.search_compute_profile,
                                        resource_name=compute_profile_name)
-        data['compute_profile_id'] = compute_profile.get('id')
+        data['compute_profile_id'] = str(compute_profile.get('id'))
 
     # Domain
     if domain_name:
@@ -218,7 +228,7 @@ def ensure(module):
                               resource_type=DOMAIN,
                               resource_func=theforeman.search_domain,
                               resource_name=domain_name)
-        data['domain_id'] = domain.get('id')
+        data['domain_id'] = str(domain.get('id'))
 
     # Environment
     if environment_name:
@@ -226,7 +236,7 @@ def ensure(module):
                                    resource_type=ENVIRONMENT,
                                    resource_func=theforeman.search_environment,
                                    resource_name=environment_name)
-        data['environment_id'] = environment.get('id')
+        data['environment_id'] = str(environment.get('id'))
 
     # Medium
     if medium_name:
@@ -234,7 +244,7 @@ def ensure(module):
                               resource_type=MEDIUM,
                               resource_func=theforeman.search_medium,
                               resource_name=medium_name)
-        data['medium_id'] = medium.get('id')
+        data['medium_id'] = str(medium.get('id'))
 
     # Operatingssystem
     if operatingsystem_name:
@@ -243,7 +253,7 @@ def ensure(module):
                                        resource_func=theforeman.search_operatingsystem,
                                        resource_name=operatingsystem_name,
                                        search_title=True)
-        data['operatingsystem_id'] = operatingsystem.get('id')
+        data['operatingsystem_id'] = str(operatingsystem.get('id'))
 
     # Partition Table
     if partition_table_name:
@@ -251,7 +261,7 @@ def ensure(module):
                                        resource_type=PARTITION_TABLE,
                                        resource_func=theforeman.search_partition_table,
                                        resource_name=partition_table_name)
-        data['ptable_id'] = partition_table.get('id')
+        data['ptable_id'] = str(partition_table.get('id'))
     # Root password
     if root_pass:
         data['root_pass'] = root_pass
@@ -262,7 +272,7 @@ def ensure(module):
                                    resource_type=SMART_PROXY,
                                    resource_func=theforeman.search_smart_proxy,
                                    resource_name=smart_proxy_name)
-        data['puppet_proxy_id'] = smart_proxy.get('id')
+        data['puppet_proxy_id'] = str(smart_proxy.get('id'))
 
     # Subnet
     if subnet_name:
@@ -270,7 +280,7 @@ def ensure(module):
                               resource_type=SUBNET,
                               resource_func=theforeman.search_subnet,
                               resource_name=subnet_name)
-        data['subnet_id'] = subnet.get('id')
+        data['subnet_id'] = str(subnet.get('id'))
 
     # Parent
     if parent_name:
@@ -279,11 +289,12 @@ def ensure(module):
                                    resource_func=theforeman.search_hostgroup,
                                    search_title=True,
                                    resource_name=parent_name)
-        data['parent_id'] = environment.get('id')
+        data['parent_id'] = str(environment.get('id'))
 
     if not hostgroup and state == 'present':
         try:
             hostgroup = theforeman.create_hostgroup(data=data)
+            changed = True
         except ForemanError as e:
             module.fail_json(msg='Could not create hostgroup: {0}'.format(e.message))
     elif hostgroup:
@@ -294,11 +305,11 @@ def ensure(module):
             except ForemanError as e:
                 module.fail_json(msg='Could not delete hostgroup: {0}'.format(e.message))
 
-        if not all(data.get(key, None) == hostgroup.get(key, None) for key in hostgroup_updateable_keys):
+        cmp_hostgroup = filter_hostgroup(hostgroup)
+        if not all(data.get(key, None) == cmp_hostgroup.get(key, None) for key in data.keys() + cmp_hostgroup.keys()):
             try:
-                for key in hostgroup_nonupdateable_keys:
-                    data.pop(key, None)
                 hostgroup = theforeman.update_hostgroup(id=hostgroup.get('id'), data=data)
+                changed = True
             except ForemanError as e:
                 module.fail_json(msg='Could not update hostgroup: {0}'.format(e.message))
 
