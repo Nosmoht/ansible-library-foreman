@@ -31,6 +31,14 @@ options:
     required: false
     default: present
     choices: ["present", "absent"]
+  organizations:
+    description:
+    - List of organization the environment should be assigned to
+    required: false
+  locations:
+    description:
+    - List of locations the environment should be assigned to
+    required: false
   foreman_host:
     description: Hostname or IP address of Foreman system
     required: false
