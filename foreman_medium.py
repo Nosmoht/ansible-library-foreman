@@ -41,6 +41,14 @@ options:
     required: false
     default: 'present'
     choices: ['present', 'absent']
+  organizations:
+    description:
+    - List of organization the medium should be assigned to
+    required: false
+  locations:
+    description:
+    - List of locations the medium should be assigned to
+    required: false
   foreman_host:
     description:
     - Hostname or IP address of Foreman system
@@ -90,11 +98,40 @@ except ImportError:
     foremanclient_found = False
 
 
+def get_organization_ids(module, theforeman, organizations):
+    result = []
+    for i in range(0, len(organizations)):
+        try:
+            organization = theforeman.search_organization(data={'name': organizations[i]})
+            if not organization:
+                module.fail_json('Could not find Organization {0}'.format(organizations[i]))
+            result.append(organization.get('id'))
+        except ForemanError as e:
+            module.fail_json('Could not get Organizations: {0}'.format(e.message))
+    return result
+
+
+def get_location_ids(module, theforeman, locations):
+    result = []
+    for i in range(0, len(locations)):
+        try:
+            location = theforeman.search_location(data={'name':locations[i]})
+            if not location:
+                module.fail_json('Could not find Location {0}'.format(locations[i]))
+            result.append(location.get('id'))
+        except ForemanError as e:
+            module.fail_json('Could not get Locations: {0}'.format(e.message))
+    return result
+
+
 def ensure(module):
     name = module.params['name']
     path = module.params['path']
     state = module.params['state']
     os_family = module.params['os_family']
+
+    organizations = module.params['organizations']
+    locations = module.params['locations']
 
     foreman_host = module.params['foreman_host']
     foreman_port = module.params['foreman_port']
@@ -128,6 +165,14 @@ def ensure(module):
     data['path'] = path
     data['os_family'] = os_family
 
+    if organizations:
+         data['organization_ids'] = get_organization_ids(module, theforeman, organizations)
+
+    if locations:
+         data['location_ids'] = get_location_ids(module, theforeman, locations)
+
+
+
     if not medium and state == 'present':
         try:
             medium = theforeman.create_medium(data=data)
@@ -159,6 +204,8 @@ def main():
             name=dict(type='str', required=True),
             path=dict(type='str', required=False),
             os_family=dict(type='str', required=False),
+            organizations=dict(type='list', required=False),
+            locations=dict(type='list', required=False),
             state=dict(type='str', default='present', choices=['present', 'absent']),
             foreman_host=dict(type='str', default='127.0.0.1'),
             foreman_port=dict(type='str', default='443'),
