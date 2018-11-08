@@ -209,18 +209,21 @@ def ensure():
                 module.fail_json(msg='Could not delete config template: {0}'.format(e.message))
 
     if state == 'present':
-        if not template and not template_file:
-            module.fail_json(msg='Either template or template_file must be defined')
-        elif template and template_file:
+        if template and template_file:
             module.fail_json(msg='Only one of either template or template_file must be defined')
-        elif template:
+
+        if template:
             data['template'] = template
-        else:
+        elif template_file:
             try:
                 with open(template_file) as f:
                     data['template'] = f.read()
             except IOError as e:
                 module.fail_json(msg='Could not open file {0}: {1}'.format(template_file, e.message))
+        else:
+            if not config_template:
+                # creating new template
+                module.fail_json(msg='Either template or template_file must be defined')
 
         data['audit_comment'] = audit_comment
         data['locked'] = locked
