@@ -139,7 +139,8 @@ def equal_dict_lists(l1, l2, compare_key='title'):
 
 
 def templates_equal(data, config_template, compareable_keys):
-    if not all(data.get(key, None) == config_template.get(key, None) for key in compareable_keys):
+    compareable_keys_provided = [ k for k in compareable_keys if k in data.keys() ]
+    if not all(data.get(key, None) == config_template.get(key, None) for key in compareable_keys_provided):
         return False
     if not equal_dict_lists(l1=data.get('operatingsystems', None), l2=config_template.get('operatingsystems', None)):
         return False
