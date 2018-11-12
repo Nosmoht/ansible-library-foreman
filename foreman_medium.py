@@ -117,12 +117,14 @@ except ImportError as e:
     import_error_msg = str(e)
 
 
-def medium_equal(data, medium, module):
-    if medium['path'] != data['path'] or medium['os_family'] != data['os_family']:
+def medium_equal(data, medium):
+    if 'path' in data and data['path'] != medium['path']:
         return False
-    if not organizations_equal(data, medium):
+    if 'os_family' in data and data['os_family'] != medium['os_family']:
         return False
-    if not locations_equal(data, medium):
+    if 'organization_ids' in data and not organizations_equal(data, medium):
+        return False
+    if 'location_ids' in data and not locations_equal(data, medium):
         return False
     return True
 
@@ -165,8 +167,10 @@ def ensure(module):
     except ForemanError as e:
         module.fail_json(msg='Could not get medium: {0}'.format(e.message))
 
-    data['path'] = path
-    data['os_family'] = os_family
+    if path:
+        data['path'] = path
+    if os_family:
+        data['os_family'] = os_family
     if organizations is not None:
         data['organization_ids'] = get_organization_ids(module, theforeman, organizations)
     if locations is not None:
@@ -186,7 +190,7 @@ def ensure(module):
                 return True, medium
             except ForemanError as e:
                 module.fail_json('Could not delete medium: {0}'.format(e.message))
-        if not medium_equal(data, medium, module):
+        if not medium_equal(data, medium):
             try:
                 medium = theforeman.update_medium(id=medium.get('id'), data=data)
                 return True, medium

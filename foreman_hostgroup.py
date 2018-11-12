@@ -181,7 +181,8 @@ def split_parent(name):
 
 
 def hostgroups_equal(data, hostgroup, comparable_keys):
-    if not all(str(data.get(key, None)) == str(hostgroup.get(key, None)) for key in comparable_keys):
+    comparable_keys_provided = [ k for k in comparable_keys if k in data.keys() ]
+    if not all(str(data.get(key, None)) == str(hostgroup.get(key, None)) for key in comparable_keys_provided):
         return False
     if not organizations_equal(data, hostgroup):
         return False

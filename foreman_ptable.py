@@ -105,13 +105,13 @@ except ImportError as e:
     import_error_msg = str(e)
 
 def ptables_equal(data, ptable):
-    if not data['layout'] == ptable['layout']:
+    if 'layout' in data and data['layout'] != ptable['layout']:
         return False
-    if not data['os_family'] == ptable['os_family']:
+    if 'os_family' in data and data['os_family'] != ptable['os_family']:
         return False
-    if not organizations_equal(data, ptable):
+    if 'organization_ids' in data and not organizations_equal(data, ptable):
         return False
-    if not locations_equal(data, ptable):
+    if 'location_ids' in data and not locations_equal(data, ptable):
         return False
     return True
 
@@ -132,8 +132,10 @@ def ensure():
     except ForemanError as e:
         module.fail_json(msg='Could not get partition table: {0}'.format(e.message))
 
-    data['layout'] = layout
-    data['os_family'] = os_family
+    if layout:
+        data['layout'] = layout
+    if os_family:
+        data['os_family'] = os_family
     if organizations is not None:
         data['organization_ids'] = get_organization_ids(module, theforeman, organizations)
     if locations is not None:
