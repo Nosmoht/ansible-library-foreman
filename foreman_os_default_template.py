@@ -26,6 +26,12 @@ options:
   operatingsystem:
     description: Operatingsystem name
     required: true
+  major:
+    description: Major version
+    required: true
+  minor:
+    description: Minor version
+    required: true
   config_template:
     description: Config Template name
     required: true
@@ -84,12 +90,14 @@ else:
 
 def ensure():
     os_name = module.params['operatingsystem']
+    major = module.params['major']
+    minor = module.params['minor']
     config_template_name = module.params['config_template']
     template_kind_name = module.params['template_kind']
     state = module.params['state']
 
     try:
-        os = theforeman.search_operatingsystem(data=dict(name=os_name))
+        os = theforeman.search_operatingsystem(data=dict(name=os_name, major=major, minor=minor))
     except ForemanError as e:
         module.fail_json(msg='Could not search operatingsystem: {0}'.format(e.message))
 
@@ -151,10 +159,12 @@ def main():
 
     module = AnsibleModule(
         argument_spec=dict(
-            operatingsystem=dict(type='str', required=True),
             config_template=dict(type='str', required=True),
-            template_kind=dict(type='str', required=True),
+            major=dict(type='int', required=True),
+            minor=dict(type='int', required=True),
+            operatingsystem=dict(type='str', required=True),
             state=dict(type='str', default='present', choices=['present', 'absent']),
+            template_kind=dict(type='str', required=True),
             foreman_host=dict(type='str', default='127.0.0.1'),
             foreman_port=dict(type='str', default='443'),
             foreman_user=dict(type='str', required=True),
